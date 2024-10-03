@@ -1,0 +1,50 @@
+import asyncio
+
+import adafruit_logging as logging
+from adafruit_apds9960.apds9960 import APDS9960
+
+class GestureData:
+    def __init__(self, what):
+        self.gesture = what
+
+
+class InputData:
+    def __init__(self, gamepad, running=True):
+        self.gamepad = gamepad
+        self.running = running
+
+
+class Gesture:
+    _logger = logging.getLogger("Gesture")
+
+    def __init__(self, i2c_bus):
+        self._apds = APDS9960(i2c_bus)
+        self._apds.enable_proximity = True
+        self._apds.enable_gesture = True
+        self._apds.enable_color = True
+
+        self._logger.setLevel(logging.INFO)
+
+        # TODO set up MQTT device?
+
+    async def read_gesture(self, input_data: InputData):
+        data = input_data.gesture
+        last_gesture = 0
+
+        while input_data.running:
+            gesture = self._apds.gesture()
+            if gesture == 0x01:
+                self._logger.info("up")
+            elif gesture == 0x02:
+                self._logger.info("down")
+            elif gesture == 0x03:
+                self._logger.info("left")
+            elif gesture == 0x04:
+                self._logger.info("right")
+                if last_gesture == 0x01:
+                    input_data.running = False
+            if gesture != 0:
+                data.gesture = gesture
+                last_gesture = gesture
+
+            await asyncio.sleep(0)

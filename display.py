@@ -1,11 +1,13 @@
 import displayio
 import i2cdisplaybus
+import math
+import time
 
-# TODO https://github.com/adafruit/Adafruit_CircuitPython_DisplayIO_SSD1306/issues/45
-# from adafruit_display_text.bitmap_label import Label
-import terminalio
 from adafruit_display_text.label import Label
-from adafruit_displayio_ssd1306 import SSD1306
+from adafruit_displayio_sh1106 import SH1106
+from adafruit_display_shapes.circle import Circle
+from adafruit_display_shapes.line import Line
+from font_raleway_medium_14 import FONT
 
 displayio.release_displays()
 _WHITE = 0xFFFFFF
@@ -13,59 +15,121 @@ _WHITE = 0xFFFFFF
 
 class Screen:
     _WIDTH = 128
-    _HEIGHT = 32
+    _HEIGHT = 64
+    # _DEGF = "℉"
+    _DEGF = "F"
 
     def __init__(self, i2c):
         display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)
-        self.display = SSD1306(
-            display_bus, height=self._HEIGHT, width=self._WIDTH, auto_refresh=False
-        )
+        self.display = SH1106(display_bus, height=self._HEIGHT, width=self._WIDTH)
         self.display.wake()
 
         # Make the display context
-        self.root_group = displayio.Group()
-        self.display.root_group = self.root_group
+        root = displayio.Group()
+        self.display.root_group = root
 
-        # divvy the screen up into two regions
-        self.top_left = Label(terminalio.FONT, text=" " * 10, color=_WHITE)
-        self.top_left.anchor_point = (0.0, 0.0)
-        self.top_left.anchored_position = (0, 0)
-        self.root_group.append(self.top_left)
+        # add the clock
+        self._clock = Clock(24)
+        root.append(self._clock.get_group())
 
-        self.top_right = Label(terminalio.FONT, text=" " * 10, color=_WHITE)
-        self.top_right.anchor_point = (0.0, 0.0)
-        self.top_right.anchored_position = (self._WIDTH / 2, 0)
-        self.root_group.append(self.top_right)
+        # display the temperature and humidity as text in thetop
+        self.temperature = Label(FONT, text="100F", color=_WHITE, x=56, y=8)
+        # self.temperature.position = (56, 0)
+        root.append(self.temperature)
 
-        self.bottom_left = Label(terminalio.FONT, text=" " * 10, color=_WHITE)
-        self.bottom_left.anchor_point = (0.0, 0.0)
-        self.bottom_left.anchored_position = (0, self._HEIGHT / 2)
-        self.root_group.append(self.bottom_left)
+        self.humidity = Label(FONT, text="99%", color=_WHITE, x=56, y=24)
+        # self.humidity.anchored_position = (56, 16)
+        root.append(self.humidity)
 
-        self.bottom_right = Label(terminalio.FONT, text=" " * 10, color=_WHITE)
-        self.bottom_right.anchor_point = (0.0, 0.0)
-        self.bottom_right.anchored_position = (self._WIDTH / 2, self._HEIGHT / 2)
-        self.root_group.append(self.bottom_right)
+        # display the pressure center bottom
+        self.under_press = Label(FONT, text=" " * 10, color=_WHITE)
+        self.under_press.anchor_point = (0.5, 1.0)
+        self.under_press.anchored_position = (self._WIDTH / 2, self._HEIGHT - 1)
+        root.append(self.under_press)
 
     def update(self):
-        self.display.refresh()
-        pass
+        self._clock.update()
+        # self.display.refresh()
 
-    def tl(self, text: str) -> None:
+    def temp_humidity(self, temp: int, humid: int) -> None:
         # print(f"tl {text}")
-        self.top_left.text = text
+        self.temperature.text = str(temp) + self._DEGF
+        self.humidity.text = str(humid) + "%"
 
-    def bl(self, text: str) -> None:
-        # print(f"bl {text}")
-        self.bottom_left.text = text
-
-    def tr(self, text: str) -> None:
-        # print(f"tr {text}")
-        self.top_right.text = text
-
-    def br(self, text: str) -> None:
-        self.bottom_right.text = text
+    def pressure(self, pressure: float) -> None:
+        self.under_press.text = "%.2f" % pressure
 
     def close(self):
         self.display.root_group = None
         self.display.sleep()
+
+
+# radius = 24
+# _tick = 3
+# _hl = radius / 2
+# _ml = radius - 2 * _tick
+
+class Clock:
+    def __init__(self, radius: int = 16, x: int = 0, y: int = 0):
+        self.radius = radius
+        self.center_x = radius + x
+        self.center_y = radius + y
+
+        self._tick = radius / 8
+        self._hl = radius / 2
+        self._ml = radius - 2 * self._tick
+        # Create a group to hold clock elements
+        clock_group = displayio.Group()
+
+        # Draw the clock face (circle)
+
+        clock_face = Circle(radius, radius, radius - 1, outline=_WHITE)
+        clock_group.append(clock_face)
+
+        # Draw tick marks (every 5 minutes)
+        for minute in range(0, 60, 5):
+            angle = (minute / 60) * 2 * 3.14159
+            x1 = radius + int(self._ml * math.cos(angle))
+            y1 = radius + int(self._ml * math.sin(angle))
+            x2 = radius + int((radius - self._tick) * math.cos(angle))
+            y2 = radius + int((radius - self._tick) * math.sin(angle))
+            tick_mark = Line(x1, y1, x2, y2, color=_WHITE)
+            clock_group.append(tick_mark)
+
+        self._group = clock_group
+        self._start_size = len(clock_group)
+
+    def get_group(self):
+        return self._group
+
+    def update(self):
+        current_time = time.localtime()
+        hour = current_time.tm_hour
+        minute = current_time.tm_min
+
+        group = self._group
+        if len(group) > self._start_size:
+            group.pop()
+            group.pop()
+
+        # Draw hour hand
+        hour_angle = (hour % 12 + minute / 60) * 30
+        hour_x = int(self._hl * math.cos(math.radians(hour_angle - 90)))
+        hour_y = int(self._hl * math.sin(math.radians(hour_angle - 90)))
+        hour_hand = Line(self.center_x,
+                         self.center_y,
+                         self.center_x + hour_x,
+                         self.center_y + hour_y,
+                         color=_WHITE)
+        group.append(hour_hand)
+
+        # Draw minute hand
+        minute_angle = minute * 6
+        minute_x = int(self._ml * math.cos(math.radians(minute_angle - 90)))
+        minute_y = int(self._ml * math.sin(math.radians(minute_angle - 90)))
+        minute_hand = Line(self.center_x,
+                           self.center_y,
+                           self.center_x + minute_x,
+                           self.center_y + minute_y,
+                           color=_WHITE)
+        group.append(minute_hand)

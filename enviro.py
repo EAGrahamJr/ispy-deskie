@@ -1,7 +1,8 @@
 import asyncio
-import time
-
-from adafruit_bme680 import Adafruit_BME680_I2C
+import time, os, rtc
+import wifi, ssl, socketpool
+import adafruit_requests
+import adafruit_logging as logging
 
 
 class EnvData:
@@ -13,90 +14,88 @@ class EnvData:
         self.pressure = 0
 
 
-class Beamer:
-    TEMP_OFFSET = -4  # based on calibration
-    HUMIDITY_OFFSET = 10  # based on calibration
-    HUMIDITY_BASELINE = 40.0
-    HUMIDITY_WEIGHTING = 0.25
+class RadioHead:
+    _logger = logging.getLogger("RadioHead")
 
-    def __init__(self, i2c, burn_in: int = 300):
-        self.bme = Adafruit_BME680_I2C(i2c)
+    def __init__(self):
+        self.pool = socketpool.SocketPool(wifi.radio)
+        self._logger.setLevel(logging.INFO)
 
-        # should be same config as kotlin
-        # _BME680_SAMPLERATES = (0, 1, 2, 4, 8, 16)
-        self.bme.humidity_oversample = 1
-        self.bme.temperature_oversample = 2
-        self.bme.pressure_oversample = 16
-        self.bme.filter_size = 0
-        self.bme.set_gas_heater(320, 150)
-
-        self._burn_in_time = int(time.time()) + burn_in
-
-    async def read_environment(self, data: EnvData):
-        last_temp = 0
-        gas_baseline = None
-        burn_in_data = []
+    async def run_time(self):
+        pause = int(os.getenv("NTP_PAUSE", "60"))  # pause in minutes between updates
 
         while True:
-            temp = self.bme.temperature + self.TEMP_OFFSET
-            data.temperature = (temp * 1.8) + 32
-            t = int(temp * 10)
-            if t != last_temp:
-                # print(f"temp change {temp} ")
-                last_temp = t
-            data.gas = self.bme.gas
-            data.humidity = self.bme.humidity + self.HUMIDITY_OFFSET
-            data.pressure = self.bme.pressure * 0.02953
+            # if connected do our thing
+            if wifi.radio.connected:
+                request = adafruit_requests.Session(self.pool, ssl.create_default_context())
+                response = None
 
-            # "burn-in" and air-quality
-            if gas_baseline is None:
-                if int(time.time()) < self._burn_in_time:
-                    burn_in_data.append(data.gas)
-                else:
-                    gas_baseline = sum(burn_in_data[-50:]) / 50.0
+                try:
+                    self._logger.info("Getting current time:")
+
+                    response = request.get("http://worldtimeapi.org/api/ip")
+                    time_data = response.json()
+                    tz_hour_offset = int(time_data['utc_offset'][0:3])
+                    tz_min_offset = int(time_data['utc_offset'][4:6])
+                    if (tz_hour_offset < 0):
+                        tz_min_offset *= -1
+                    unixtime = int(time_data['unixtime'] + (tz_hour_offset * 60 * 60)) + (
+                                tz_min_offset * 60)
+
+                    rtc.RTC().datetime = time.localtime(
+                        unixtime)  # create time struct and set RTC with it
+                except Exception as e:
+                    self._logger.exception(e)
+                finally:
+                    if response is not None:
+                        response.close()
+                await asyncio.sleep(pause * 60)
+            # otherwise wait for a connection
             else:
-                data.air_quality = self.air_quality(
-                    data.gas,
-                    gas_baseline,
-                    data.humidity,
-                    self.HUMIDITY_BASELINE,
-                    self.HUMIDITY_WEIGHTING,
-                )
+                await asyncio.sleep(15)
 
-            # TODO MQTT publish stuff -- shouldn't be 1 per cycle because that's dumb
+    async def get_weather(self, data: EnvData):
+        pause = int(os.getenv("WEATHER_PAUSE", "15"))  # pause in minutes between updates
+        station_id = os.getenv("WEATHER_STATION", "kbfi")
+        weather_uri = "https://api.weather.gov/stations/" + station_id + "/observations?limit=1"
+        rqst_headers = {"User-Agent": "(ispy-deskmate, txcrackers@gmail.com)",
+                        "Accept": "application/geo+json"}
 
-            await asyncio.sleep(1)
+        while True:
+            if wifi.radio.connected:
+                request = adafruit_requests.Session(self.pool, ssl.create_default_context())
+                response = None
 
-    @staticmethod
-    def air_quality(
-            gas_reading,
-            gas_baseline,
-            humidity_reading,
-            humidity_baseline,
-            humidity_weighting,
-    ):
+                try:
+                    self._logger.info("Getting weather")
 
-        gas_offset = gas_baseline - gas_reading
-        humidity_offset = humidity_reading - humidity_baseline
+                    response = request.get(weather_uri, headers=rqst_headers)
+                    weather_data = response.json()
+                    props = weather_data["features"][0]["properties"]
+                    temp = props["temperature"]["value"]
+                    data.temperature = (temp * 1.8) + 32
+                    data.humidity = props["relativeHumidity"]["value"]
 
-        if humidity_offset > 0:
-            humidity_score = (
-                    (100 - humidity_baseline - humidity_offset)
-                    / (100 - humidity_baseline)
-                    * (humidity_weighting * 100)
-            )
-        else:
-            humidity_score = (
-                    (humidity_baseline + humidity_offset)
-                    / humidity_baseline
-                    * (humidity_weighting * 100)
-            )
+                except Exception as e:
+                    self._logger.exception(e)
+                finally:
+                    if response is not None:
+                        response.close()
+                await asyncio.sleep(pause * 60)
+            # otherwise wait for a connection
+            else:
+                await asyncio.sleep(15)
 
-        if gas_offset > 0:
-            gas_score = (gas_reading / gas_baseline) * (
-                    100 - (humidity_weighting * 100)
-            )
-        else:
-            gas_score = 100 - (humidity_weighting * 100)
-
-        return humidity_score + gas_score
+    async def connect_wifi(self):
+        """
+        (Re-)Connect to the network. Exposed for other radio users to check.
+        """
+        self._logger.debug("Checking WiFi")
+        while not wifi.radio.connected:
+            self._logger.info("Connecting to WiFi")
+            wifi.radio.connect(ssid=os.getenv('WIFI_SSID'), password=os.getenv('WIFI_PASSWORD'))
+            if not wifi.radio.connected:
+                self._logger.warning("Attempting to re-connect")
+                await asyncio.sleep(2)
+            else:
+                self._logger.info(f"Connected to WiFi - IP address: {wifi.radio.ipv4_address}")
