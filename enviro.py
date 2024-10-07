@@ -4,7 +4,6 @@ import wifi, ssl, socketpool
 import adafruit_requests
 import adafruit_logging as logging
 
-
 class EnvData:
     def __init__(self, t, g, h):
         self.temperature = t
@@ -31,7 +30,7 @@ class RadioHead:
                 response = None
 
                 try:
-                    self._logger.info("Getting current time:")
+                    self._logger.info("Getting current time")
 
                     response = request.get("http://worldtimeapi.org/api/ip")
                     time_data = response.json()
@@ -45,13 +44,14 @@ class RadioHead:
                     rtc.RTC().datetime = time.localtime(
                         unixtime)  # create time struct and set RTC with it
                 except Exception as e:
-                    self._logger.exception(e)
+                    await self._boo_boo("Unable to get or set time",e)
                 finally:
                     if response is not None:
                         response.close()
                 await asyncio.sleep(pause * 60)
             # otherwise wait for a connection
             else:
+                self._logger.warning("Time waiting on connection")
                 await asyncio.sleep(15)
 
     async def get_weather(self, data: EnvData):
@@ -77,13 +77,14 @@ class RadioHead:
                     data.humidity = props["relativeHumidity"]["value"]
 
                 except Exception as e:
-                    self._logger.exception(e)
+                    await self._boo_boo(f"Unable to get weather for {station_id}",e)
                 finally:
                     if response is not None:
                         response.close()
                 await asyncio.sleep(pause * 60)
             # otherwise wait for a connection
             else:
+                self._logger.warning("Weather waiting on connection")
                 await asyncio.sleep(15)
 
     async def connect_wifi(self):
@@ -92,10 +93,18 @@ class RadioHead:
         """
         self._logger.debug("Checking WiFi")
         while not wifi.radio.connected:
-            self._logger.info("Connecting to WiFi")
-            wifi.radio.connect(ssid=os.getenv('WIFI_SSID'), password=os.getenv('WIFI_PASSWORD'))
+            try:
+                self._logger.info("Connecting to WiFi")
+                wifi.radio.connect(ssid=os.getenv('WIFI_SSID'), password=os.getenv('WIFI_PASSWORD'))
+            except Exception as e:
+                await self._boo_boo("Error connecting wifi",e)
+
             if not wifi.radio.connected:
                 self._logger.warning("Attempting to re-connect")
                 await asyncio.sleep(2)
             else:
                 self._logger.info(f"Connected to WiFi - IP address: {wifi.radio.ipv4_address}")
+
+    async def _boo_boo(self, msg:str, error:Exception):
+        self._logger.error(f"{msg} - {str(error)}")
+        # self._logger.exception(error)

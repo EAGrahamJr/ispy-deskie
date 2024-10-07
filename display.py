@@ -7,11 +7,12 @@ from adafruit_display_text.label import Label
 from adafruit_displayio_sh1106 import SH1106
 from adafruit_display_shapes.circle import Circle
 from adafruit_display_shapes.line import Line
-from font_raleway_medium_14 import FONT
+from adafruit_bitmap_font import bitmap_font
 
 displayio.release_displays()
 _WHITE = 0xFFFFFF
 
+FONT = bitmap_font.load_font("fonts/WS_Regular-14.pcf")
 
 class Screen:
     _WIDTH = 128
@@ -37,37 +38,26 @@ class Screen:
         # self.temperature.position = (56, 0)
         root.append(self.temperature)
 
-        self.humidity = Label(FONT, text="99%", color=_WHITE, x=56, y=24)
+        self.humidity = Label(FONT, text="100%", color=_WHITE, x=56, y=24)
         # self.humidity.anchored_position = (56, 16)
         root.append(self.humidity)
 
-        # display the pressure center bottom
-        self.under_press = Label(FONT, text=" " * 10, color=_WHITE)
-        self.under_press.anchor_point = (0.5, 1.0)
-        self.under_press.anchored_position = (self._WIDTH / 2, self._HEIGHT - 1)
-        root.append(self.under_press)
+        self._status_group = displayio.Group(y=56)
 
     def update(self):
         self._clock.update()
-        # self.display.refresh()
 
     def temp_humidity(self, temp: int, humid: int) -> None:
         # print(f"tl {text}")
-        self.temperature.text = str(temp) + self._DEGF
-        self.humidity.text = str(humid) + "%"
+        self.temperature.text = f"{temp:>3}F"
+        self.humidity.text = f"{humid:>3}%"
 
     def pressure(self, pressure: float) -> None:
-        self.under_press.text = "%.2f" % pressure
+        pass
 
     def close(self):
         self.display.root_group = None
         self.display.sleep()
-
-
-# radius = 24
-# _tick = 3
-# _hl = radius / 2
-# _ml = radius - 2 * _tick
 
 class Clock:
     def __init__(self, radius: int = 16, x: int = 0, y: int = 0):
