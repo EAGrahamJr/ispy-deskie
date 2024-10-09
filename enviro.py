@@ -1,8 +1,11 @@
 import asyncio
 import time, os, rtc
+
 import wifi, ssl, socketpool
 import adafruit_requests
 import adafruit_logging as logging
+from adafruit_logging import LogRecord
+
 
 class EnvData:
     def __init__(self, t, g, h):
@@ -13,12 +16,21 @@ class EnvData:
         self.pressure = 0
 
 
+class LogHandler(logging.StreamHandler):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def format(self, record: LogRecord) -> str:
+        time = rtc.RTC().datetime
+        return f"[{time.tm_hour:02d}:{time.tm_min:02d}] {record.levelname} - {record.msg}"
+
 class RadioHead:
     _logger = logging.getLogger("RadioHead")
 
     def __init__(self):
         self.pool = socketpool.SocketPool(wifi.radio)
         self._logger.setLevel(logging.INFO)
+        self._logger.addHandler(LogHandler())
 
     async def run_time(self):
         pause = int(os.getenv("NTP_PAUSE", "60"))  # pause in minutes between updates
@@ -41,8 +53,8 @@ class RadioHead:
                     unixtime = int(time_data['unixtime'] + (tz_hour_offset * 60 * 60)) + (
                                 tz_min_offset * 60)
 
-                    rtc.RTC().datetime = time.localtime(
-                        unixtime)  # create time struct and set RTC with it
+                    # create time struct and set RTC with it
+                    rtc.RTC().datetime = time.localtime(unixtime)
                 except Exception as e:
                     await self._boo_boo("Unable to get or set time",e)
                 finally:
@@ -73,8 +85,17 @@ class RadioHead:
                     weather_data = response.json()
                     props = weather_data["features"][0]["properties"]
                     temp = props["temperature"]["value"]
-                    data.temperature = (temp * 1.8) + 32
-                    data.humidity = props["relativeHumidity"]["value"]
+                    if temp is None:
+                        self._logger.warning(f"No temperature data")
+                        data.temperature = 1.0
+                    else:
+                        data.temperature = int(temp * 1.8) + 32
+                    humid = props["relativeHumidity"]["value"]
+                    if humid is None:
+                        self._logger.warning(f"No pressure data")
+                        data.humidity = 1.0
+                    else:
+                        data.humidity = humid
 
                 except Exception as e:
                     await self._boo_boo(f"Unable to get weather for {station_id}",e)
@@ -89,7 +110,7 @@ class RadioHead:
 
     async def connect_wifi(self):
         """
-        (Re-)Connect to the network. Exposed for other radio users to check.
+        (Re-)Connect to the network.
         """
         self._logger.debug("Checking WiFi")
         while not wifi.radio.connected:
@@ -100,10 +121,9 @@ class RadioHead:
                 await self._boo_boo("Error connecting wifi",e)
 
             if not wifi.radio.connected:
-                self._logger.warning("Attempting to re-connect")
                 await asyncio.sleep(2)
             else:
-                self._logger.info(f"Connected to WiFi - IP address: {wifi.radio.ipv4_address}")
+                self._logger.warning(f"Connected to WiFi - IP address: {wifi.radio.ipv4_address}")
 
     async def _boo_boo(self, msg:str, error:Exception):
         self._logger.error(f"{msg} - {str(error)}")
