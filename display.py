@@ -14,6 +14,7 @@ _WHITE = 0xFFFFFF
 
 FONT = bitmap_font.load_font("fonts/WS_Regular-14.pcf")
 
+
 class Screen:
     _WIDTH = 128
     _HEIGHT = 64
@@ -44,20 +45,17 @@ class Screen:
 
         self._status_group = displayio.Group(y=56)
 
-    def update(self):
-        self._clock.update()
-
-    def temp_humidity(self, temp: int, humid: int) -> None:
-        # print(f"tl {text}")
+    def update(self, data):
+        temp = int(data.temperature)
+        humid = int(data.humidity)
         self.temperature.text = f"{temp:>3}F"
         self.humidity.text = f"{humid:>3}%"
-
-    def pressure(self, pressure: float) -> None:
-        pass
+        self._clock.update()
 
     def close(self):
         self.display.root_group = None
         self.display.sleep()
+
 
 class Clock:
     def __init__(self, radius: int = 16, x: int = 0, y: int = 0):
@@ -106,20 +104,24 @@ class Clock:
         hour_angle = (hour % 12 + minute / 60) * 30
         hour_x = int(self._hl * math.cos(math.radians(hour_angle - 90)))
         hour_y = int(self._hl * math.sin(math.radians(hour_angle - 90)))
-        hour_hand = Line(self.center_x,
-                         self.center_y,
-                         self.center_x + hour_x,
-                         self.center_y + hour_y,
-                         color=_WHITE)
+        hour_hand = Line(
+            self.center_x,
+            self.center_y,
+            self.center_x + hour_x,
+            self.center_y + hour_y,
+            color=_WHITE,
+        )
         group.append(hour_hand)
 
         # Draw minute hand
         minute_angle = minute * 6
         minute_x = int(self._ml * math.cos(math.radians(minute_angle - 90)))
         minute_y = int(self._ml * math.sin(math.radians(minute_angle - 90)))
-        minute_hand = Line(self.center_x,
-                           self.center_y,
-                           self.center_x + minute_x,
-                           self.center_y + minute_y,
-                           color=_WHITE)
+        minute_hand = Line(
+            self.center_x,
+            self.center_y,
+            self.center_x + minute_x,
+            self.center_y + minute_y,
+            color=_WHITE,
+        )
         group.append(minute_hand)
