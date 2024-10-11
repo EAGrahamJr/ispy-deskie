@@ -47,9 +47,10 @@ class RadioHead:
             os.getenv("WEATHER_PAUSE", "15")
         )  # pause in minutes between
         # updates
-        station_id = os.getenv("WEATHER_STATION", "kbfi")
+        self._weather_station = os.getenv("WEATHER_STATION", "kbfi")
         self._weather_uri = (
-                "https://api.weather.gov/stations/" + station_id + "/observations?limit=1"
+                "https://api.weather.gov/stations/" + self._weather_station +
+                "/observations?limit=1"
         )
         self._weather_rqst_headers = {
             "User-Agent": "(ispy-deskmate, txcrackers@gmail.com)",
@@ -83,13 +84,13 @@ class RadioHead:
 
     async def run_time(self):
         await self.run_request(
-            "http://worldtimeapi.org/api/ip", "Time", self._time_parse, self._time_pause
+            "http://worldtimeapi.org/api/ip", "time", self._time_parse, self._time_pause
         )
 
     async def get_weather(self):
         await self.run_request(
             self._weather_uri,
-            "Weather",
+            f"weather for {self._weather_station}",
             self._weather_parse,
             self._weather_pause,
             self._weather_rqst_headers,

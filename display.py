@@ -23,12 +23,13 @@ class Screen:
 
     def __init__(self, i2c):
         display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)
-        self.display = SH1106(display_bus, height=self._HEIGHT, width=self._WIDTH)
-        self.display.wake()
+        self.display = SH1106(display_bus, height=self._HEIGHT, width=self._WIDTH + 4)
 
         # Make the display context
-        root = displayio.Group()
-        self.display.root_group = root
+        faux_root = displayio.Group()
+        self.display.root_group = faux_root
+        root = displayio.Group(x=2)
+        faux_root.append(root)
 
         # add the clock
         self._clock = Clock(24)
@@ -46,11 +47,21 @@ class Screen:
         self._status_group = displayio.Group(y=56)
 
     def update(self, data):
+        current_time = time.localtime()
+        hour = current_time.tm_hour
+        minute = current_time.tm_min
+
+        if hour > 6 and hour < 23:
+            self.display.wake()
+        else:
+            self.display.sleep()
+            return
+
         temp = int(data.temperature)
         humid = int(data.humidity)
         self.temperature.text = f"{temp:>3}F"
         self.humidity.text = f"{humid:>3}%"
-        self._clock.update()
+        self._clock.update(hour, minute)
 
     def close(self):
         self.display.root_group = None
@@ -90,11 +101,7 @@ class Clock:
     def get_group(self):
         return self._group
 
-    def update(self):
-        current_time = time.localtime()
-        hour = current_time.tm_hour
-        minute = current_time.tm_min
-
+    def update(self, hour, minute):
         group = self._group
         if len(group) > self._start_size:
             group.pop()
