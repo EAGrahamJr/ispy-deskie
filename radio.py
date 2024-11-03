@@ -32,7 +32,7 @@ _logger = logging.getLogger("RadioHead")
 
 class RadioHead:
 
-    def __init__(self, env):
+    def __init__(self, env: EnvData):
         self.env = env
         self.pool = socketpool.SocketPool(wifi.radio)
         _logger.setLevel(logging.INFO)
@@ -49,54 +49,60 @@ class RadioHead:
         # updates
         self._weather_station = os.getenv("WEATHER_STATION", "kbfi")
         self._weather_uri = (
-                "https://api.weather.gov/stations/" + self._weather_station +
-                "/observations?limit=1"
+                "https://api.weather.gov/stations/"
+                + self._weather_station
+                + "/observations/latest"
         )
         self._weather_rqst_headers = {
             "User-Agent": "(ispy-deskmate, txcrackers@gmail.com)",
             "Accept": "application/geo+json",
         }
 
-    def _time_parse(self, time_data):
+    def __time_parse(self, response):
+        time_data = response.json()
         tz_hour_offset = int(time_data["utc_offset"][0:3])
         tz_min_offset = int(time_data["utc_offset"][4:6])
         if tz_hour_offset < 0:
             tz_min_offset *= -1
-        unixtime = int(time_data["unixtime"] + (tz_hour_offset * 60 * 60)) + (
+        unixtime = int(time_data["unixtime"] + (tz_hour_offset * 3600)) + (
                 tz_min_offset * 60
         )
 
         # create time struct and set RTC with it
         rtc.RTC().datetime = time.localtime(unixtime)
 
-    def _weather_parse(self, weather_data):
-        props = weather_data["features"][0]["properties"]
+    def __weather_parse(self, response):
+        weather_data = response.json()
+        props = weather_data["properties"]
         temp = props["temperature"]["value"]
         if temp is None:
-            _logger.warning(f"No temperature data")
+            _logger.warning("No temperature data")
         else:
             self.env.temperature = int(temp * 1.8) + 32
         humid = props["relativeHumidity"]["value"]
         if humid is None:
-            _logger.warning(f"No pressure data")
+            _logger.warning("No pressure data")
         else:
             self.env.humidity = humid
 
     async def run_time(self):
-        await self.run_request(
-            "http://worldtimeapi.org/api/ip", "time", self._time_parse, self._time_pause
+        await self.__run_request(
+            "http://worldtimeapi.org/api/ip",
+            "time",
+            self.__time_parse,
+            self._time_pause,
         )
 
     async def get_weather(self):
-        await self.run_request(
+        await self.__run_request(
             self._weather_uri,
             f"weather for {self._weather_station}",
-            self._weather_parse,
+            self.__weather_parse,
             self._weather_pause,
             self._weather_rqst_headers,
         )
 
-    async def run_request(
+    async def __run_request(
             self, uri: str, what: str, parser, pause: int = 15, rqst_headers=None
     ):
         while True:
@@ -109,11 +115,10 @@ class RadioHead:
                 try:
                     _logger.info(f"Getting {what}")
                     response = request.get(uri, headers=rqst_headers)
-                    data = response.json()
-                    parser(data)
+                    parser(response)
 
                 except Exception as e:
-                    await self._boo_boo(f"Unable to get {what}", e)
+                    await self.__boo_boo(f"Unable to get {what}", e)
                 finally:
                     if response is not None:
                         response.close()
@@ -135,7 +140,7 @@ class RadioHead:
                     ssid=os.getenv("WIFI_SSID"), password=os.getenv("WIFI_PASSWORD")
                 )
             except Exception as e:
-                await self._boo_boo("Error connecting wifi", e)
+                await self.__boo_boo("Error connecting wifi", e)
 
             if not wifi.radio.connected:
                 await asyncio.sleep(2)
@@ -144,6 +149,6 @@ class RadioHead:
                     f"Connected to WiFi - IP address: {wifi.radio.ipv4_address}"
                 )
 
-    async def _boo_boo(self, msg: str, error: Exception):
+    async def __boo_boo(self, msg: str, error: Exception):
         _logger.error(f"{msg} - {str(error)}")
         # _logger.exception(error)

@@ -43,3 +43,19 @@ class I2CProxy:
 
     def unlock(self):
         self._i2c.unlock()
+
+
+def bw_color(image, palette):
+    import displayio
+
+    def gamma_adjust(color, gamma=2.2):
+        return int(pow(color / 255.0, gamma) * 255)
+
+    corrected_palette = displayio.Palette(len(palette))
+    for i, color in enumerate(palette):
+        r, g, b = color
+        r = gamma_adjust(r)
+        g = gamma_adjust(g)
+        b = gamma_adjust(b)
+        corrected_palette[i] = (r, g, b)
+    return image, corrected_palette
