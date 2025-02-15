@@ -39,14 +39,17 @@ class RadioHead:
         _logger.addHandler(LogHandler())
 
         # read ENV
+        # pause in minutes between updates
         self._time_pause = int(
             os.getenv("NTP_PAUSE", "60")
-        )  # pause in minutes between updates
+        )
 
+        # pause in minutes between updates
         self._weather_pause = int(
             os.getenv("WEATHER_PAUSE", "15")
-        )  # pause in minutes between
-        # updates
+        )
+
+        # weather station
         self._weather_station = os.getenv("WEATHER_STATION", "kbfi")
         self._weather_uri = (
                 "https://api.weather.gov/stations/"

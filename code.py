@@ -7,6 +7,7 @@ import edlib
 
 import asyncio
 from display import Screen
+from local_sensor import TempSensor
 from radio import EnvData, RadioHead
 
 i2c = edlib.i2c()
@@ -28,10 +29,11 @@ async def main():
 
     # fills it
     rh = RadioHead(env)
+    local = TempSensor(i2c, env)
 
     # these just run on their own
     ignored1 = asyncio.create_task(rh.run_time())
-    ignored2 = asyncio.create_task(rh.get_weather())
+    ignored2 = asyncio.create_task(local.get_weather())
     ignored3 = asyncio.create_task(display_stuff(env))
 
     while True:
