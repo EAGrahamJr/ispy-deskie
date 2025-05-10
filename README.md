@@ -15,4 +15,4 @@ NTP_PAUSE=60
 
 ```
 
-The intent is to stuff it into https://www.thingiverse.com/thing:6683611 and just ignore the hole in the back.
+This is stuffed into a https://www.printables.com/model/125366-adafruit-qtpy-case -- the latest addition has an `adafruit_ahtx0` also included for getting the local environment..

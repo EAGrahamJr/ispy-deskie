@@ -5,3 +5,5 @@
 #rsync -avz --delete *.service $DEST
 #rsync -avz --delete systemd.sh $DEST
 cp *.py CIRCUITPY/
+mv CIRCUITPY/the_code.py CIRCUITPY/code.py
+

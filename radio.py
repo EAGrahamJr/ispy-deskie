@@ -1,11 +1,14 @@
 import asyncio
-import time, os, rtc
+import time
+import os
+import rtc
 
-import wifi, ssl, socketpool
+import wifi
+import ssl
+import socketpool
 import adafruit_requests
 import adafruit_logging as logging
 from adafruit_logging import LogRecord
-
 
 class EnvData:
     def __init__(self, t, g, h):
@@ -62,17 +65,39 @@ class RadioHead:
         }
 
     def __time_parse(self, response):
-        time_data = response.json()
-        tz_hour_offset = int(time_data["utc_offset"][0:3])
-        tz_min_offset = int(time_data["utc_offset"][4:6])
-        if tz_hour_offset < 0:
-            tz_min_offset *= -1
-        unixtime = int(time_data["unixtime"] + (tz_hour_offset * 3600)) + (
-                tz_min_offset * 60
-        )
+        data = response.json()
+        # Set the local timezone to the one specified in the JSON.
+        # Note: time.tzset() is available on Unix systems.
+        os.environ['TZ'] = data["timeZone"]
+        time.tzset()
 
+        # Get the ISO 8601 datetime string.
+        dt_str = data["dateTime"]  # e.g., "2025-05-10T11:39:21.5929708"
+
+        # Split off the fractional seconds (if present) so we can process them separately.
+        if '.' in dt_str:
+            main_part, frac_part = dt_str.split('.')
+            # Convert the fractional part into a fraction of a second.
+            frac_seconds = float("0." + frac_part)
+        else:
+            main_part = dt_str
+            frac_seconds = 0.0
+
+        # Use time.strptime to parse the main part of the timestamp.
+        # The format matches: YYYY-MM-DDTHH:MM:SS
+        time_tuple = time.strptime(main_part, "%Y-%m-%dT%H:%M:%S")
+
+        # Convert the local time tuple to seconds since the Epoch.
+        # time.mktime() interprets the struct_time in the current local timezone.
+        local_epoch = time.mktime(time_tuple)
+
+        # Add the fractional seconds to capture the full precision.
+        epoch_timestamp = local_epoch + frac_seconds
+
+        # If you need an integer epoch value (truncating fractions), cast to int.
+        epoch_seconds = int(epoch_timestamp)
         # create time struct and set RTC with it
-        rtc.RTC().datetime = time.localtime(unixtime)
+        rtc.RTC().datetime = time.localtime(epoch_seconds)
 
     def __weather_parse(self, response):
         weather_data = response.json()
@@ -94,6 +119,7 @@ class RadioHead:
             "time",
             self.__time_parse,
             self._time_pause,
+            rqst_headers={'accept':'application-json'}
         )
 
     async def get_weather(self):
