@@ -12,7 +12,7 @@ i2c = edlib.i2c()
 
 screen = Screen(i2c)
 
-pixels = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness=0.25)
+pixels = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness=0.25) # type: ignore
 
 
 async def display_stuff(data: EnvData):

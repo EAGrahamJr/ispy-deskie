@@ -12,8 +12,8 @@ from adafruit_displayio_sh1106 import SH1106
 from adafruit_display_shapes.circle import Circle
 from adafruit_display_shapes.line import Line
 from adafruit_bitmap_font import bitmap_font
-from radio import _logger
 
+from logger import get_logger
 
 displayio.release_displays()
 _WHITE = 0xFFFFFF
@@ -51,6 +51,7 @@ class Screen:
     )
 
     def __init__(self, i2c):
+        self._logger = get_logger(__name__)
         display_bus = i2cdisplaybus.I2CDisplayBus(i2c, device_address=0x3C)
         self.display = SH1106(display_bus, height=self._HEIGHT, width=self._WIDTH + 4)
         self.display.brightness = 0.2
@@ -88,14 +89,14 @@ class Screen:
         if hour < 8 or hour > 20:
             # self.display.sleep()
             if self.display._is_awake:
-                _logger.info("Go to sleep")
+                self._logger.info("Go to sleep")
                 self.display.bus.send(0xAE, b"")  # 0xAE = display off, sleep mode
                 self.display._is_awake = False
             return
 
         # self.display.wake()
         if not self.display._is_awake:
-            _logger.info("Wakey")
+            self._logger.info("Wakey")
             self.display.bus.send(0xAF, b"")  # 0xAE = display off, sleep mode
             self.display._is_awake = True
 
