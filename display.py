@@ -1,4 +1,4 @@
-from random import random
+import random
 
 import displayio
 import i2cdisplaybus
@@ -58,10 +58,9 @@ class Screen:
         self._last_fortune = -1
 
         # Make the display context
-        actual_root = displayio.Group()
-        self.display.root_group = actual_root
+        self.display.root_group = displayio.Group()
         self.display_group = displayio.Group(x=2)
-        actual_root.append(self.display_group)
+        self.display.root_group.append(self.display_group)
 
         # add the clock
         self._clock = Clock(24)
@@ -109,12 +108,13 @@ class Screen:
         if self._last_fortune == -1 or minute % 5 == 0:
             f = self._last_fortune
             while f == self._last_fortune:
-                f = random.randint(1, len(self._FORTUNES)) - 1
+                f = random.randrange(len(self._FORTUNES))
             self.fortune.text = self._FORTUNES[f]
             self._last_fortune = f
 
     def close(self):
-        self.display.root_group = None
+        # Replace root_group with an empty Group (None is not allowed)
+        self.display.root_group = displayio.Group()
         self.display.sleep()
 
 
