@@ -36,7 +36,7 @@ class Requestor(ABC):
                     parser(response)
 
                 except Exception as e:
-                    await self.logger.error(f"Unable to get {what}: {str(e)}")
+                    self.logger.error(f"Unable to get {what}: {str(e)}")
                 finally:
                     if response is not None:
                         response.close()

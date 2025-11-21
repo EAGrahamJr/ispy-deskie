@@ -1,4 +1,7 @@
 .idea
 venv
-issue45.py
-display.sh
+CIRCUITPY
+*settings.toml
+__pycache__/
+*.pyc
+.DS_Store

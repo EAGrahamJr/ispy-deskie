@@ -1,6 +1,6 @@
 import asyncio
 import os
-import rtc
+import rtc # type: ignore
 
 import wifi
 import socketpool
@@ -21,7 +21,7 @@ class RadioHead:
     def __init__(self, env: EnvData):
         self.env = env
         pool = socketpool.SocketPool(wifi.radio) # type: ignore
-        self.ntp = adafruit_ntp.NTP(pool,tz_offset=-7,cache_seconds=3600)
+        self.ntp = adafruit_ntp.NTP(pool,tz_offset=-8,cache_seconds=3600)
         self.logger = get_logger(__name__)
 
         # read ENV

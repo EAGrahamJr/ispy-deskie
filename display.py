@@ -3,7 +3,6 @@ from random import random
 import displayio
 import i2cdisplaybus
 import math
-import random
 import time
 import terminalio
 
