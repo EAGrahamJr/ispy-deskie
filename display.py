@@ -1,23 +1,22 @@
+import math
 import random
+import time
 
 import displayio
 import i2cdisplaybus
-import math
-import time
 import terminalio
-
-from adafruit_display_text.label import Label
-from adafruit_displayio_sh1106 import SH1106
+from adafruit_bitmap_font import bitmap_font
 from adafruit_display_shapes.circle import Circle
 from adafruit_display_shapes.line import Line
-from adafruit_bitmap_font import bitmap_font
+from adafruit_display_text.label import Label
+from adafruit_displayio_sh1106 import SH1106
 
 from logger import get_logger
 
 displayio.release_displays()
 _WHITE = 0xFFFFFF
 
-REG_FONT = bitmap_font.load_font("fonts/WS_Regular-14.pcf")
+REG_FONT = bitmap_font.load_font("fonts/WS_Regular-14.bdf")
 EIGHT_FONT = terminalio.FONT
 
 
@@ -84,7 +83,7 @@ class Screen:
         minute = current_time.tm_min
 
         # TODO https://github.com/adafruit/Adafruit_CircuitPython_DisplayIO_SH1106/issues/21
-        if hour < 8 or hour > 20:
+        if hour < 7 or hour > 20:
             # self.display.sleep()
             if self.display._is_awake:
                 self._logger.info("Go to sleep")

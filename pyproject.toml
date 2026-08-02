@@ -1,0 +1,21 @@
+[project]
+name = "annie-clock"
+version = "0.1.0"
+description = "Desktop analog clock and temperature"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "adafruit-blinka>=9.2.0",
+    "adafruit-circuitpython-ahtx0>=1.0.30",
+    "adafruit-circuitpython-bitmap-font>=2.4.2",
+    "adafruit-circuitpython-display-shapes>=2.10.6",
+    "adafruit-circuitpython-display-text>=5.0.5",
+    "adafruit-circuitpython-displayio-sh1106>=2.0.4",
+    "adafruit-circuitpython-logging>=5.6.4",
+    "adafruit-circuitpython-minimqtt>=8.1.0",
+    "adafruit-circuitpython-neopixel>=6.4.2",
+    "adafruit-circuitpython-ntp>=3.3.7",
+]
+
+[dependency-groups]
+dev = []

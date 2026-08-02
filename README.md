@@ -17,3 +17,13 @@ NTP_PAUSE=60
 
 This is stuffed into a https://www.printables.com/model/125366-adafruit-qtpy-case -- the latest addition has an
 `adafruit_ahtx0` also included for getting the local environment.
+
+## Dependencies
+
+On-system dependencies are managed by `uv`.
+
+`circup` dependency list:
+
+* TBD
+
+Additional font file: tbd

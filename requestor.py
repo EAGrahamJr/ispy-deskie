@@ -1,15 +1,16 @@
-from abc import ABC
+# from abc import ABC
 import asyncio
-import adafruit_requests
 import ssl
-import socketpool
-import wifi
+
+import adafruit_requests
+import socketpool  # type: ignore
+import wifi  # type: ignore
 
 from logger import get_logger
 from radio import EnvData
 
 
-class Requestor(ABC):
+class Requestor:
     def __init__(self, env_data:EnvData):
         self.logger = get_logger(__name__)
         self.pool = socketpool.SocketPool(wifi.radio) # type: ignore
@@ -35,7 +36,7 @@ class Requestor(ABC):
                     response = request.get(uri, headers=rqst_headers)
                     parser(response)
 
-                except Exception as e:
+                except RuntimeError as e:
                     self.logger.error(f"Unable to get {what}: {str(e)}")
                 finally:
                     if response is not None:

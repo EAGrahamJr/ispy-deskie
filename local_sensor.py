@@ -1,6 +1,8 @@
-import adafruit_ahtx0
 import asyncio
 import os
+
+import adafruit_ahtx0
+
 from radio import EnvData
 
 

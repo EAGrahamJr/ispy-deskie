@@ -1,12 +1,13 @@
 import asyncio
 import os
-import rtc # type: ignore
 
-import wifi
-import socketpool
 import adafruit_ntp
+import rtc  # type: ignore
+import socketpool  # type: ignore
+import wifi  # type: ignore
 
 from logger import get_logger
+
 
 class EnvData:
     def __init__(self, t, g, h):
@@ -21,7 +22,7 @@ class RadioHead:
     def __init__(self, env: EnvData):
         self.env = env
         pool = socketpool.SocketPool(wifi.radio) # type: ignore
-        self.ntp = adafruit_ntp.NTP(pool,tz_offset=-8,cache_seconds=3600)
+        self.ntp = adafruit_ntp.NTP(pool,tz_offset=-7,cache_seconds=3600)
         self.logger = get_logger(__name__)
 
         # read ENV
@@ -39,8 +40,8 @@ class RadioHead:
                     rtc.RTC().datetime = self.ntp.datetime
                     self.logger.info("Got time")
                     await asyncio.sleep(self._time_pause)
-                except Exception as e:
-                    self.logger.error(f"Unable to get time: {str(e)}")
+                except RuntimeError as e:
+                    self.logger.error(f"Unable to get time: {e}")
             else:
                 self.logger.warning("time waiting on connection")
                 await asyncio.sleep(15)

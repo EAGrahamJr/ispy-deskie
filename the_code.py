@@ -1,12 +1,14 @@
-import neopixel
+import asyncio
+
 import board
+import neopixel
 
 import edlib
-
-import asyncio
 from display import Screen
 from local_sensor import TempSensor
 from radio import EnvData, RadioHead
+
+# from weathergov import WeatherGov
 
 i2c = edlib.i2c()
 
@@ -27,12 +29,13 @@ async def main():
 
     # fills it
     rh = RadioHead(env)
-    local = TempSensor(i2c, env)
+    weather = TempSensor(i2c, env)
+    # weather = WeatherGov(env)
 
     # these just run on their own
-    ignored1 = asyncio.create_task(rh.run_time())
-    ignored2 = asyncio.create_task(local.get_weather())
-    ignored3 = asyncio.create_task(display_stuff(env))
+    asyncio.create_task(rh.run_time())
+    asyncio.create_task(weather.get_weather())
+    asyncio.create_task(display_stuff(env))
 
     while True:
         await rh.connect_wifi()
